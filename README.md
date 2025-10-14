@@ -15,6 +15,14 @@ It demonstrates various message types including:
 - Tool responses
 - Images in tool results
 
+## Requirements
+
+**Important**: The script requires two image files in the project root directory:
+- `tires.jpeg` - Used for the `image_input` scenario
+- `plot.png` - Used for the `image_in_tool` scenario
+
+These images are loaded and sent as base64-encoded data to demonstrate how to handle image inputs and outputs. Make sure these files exist before running the image-related scenarios.
+
 ## Setup
 
 ### 1. Install Dependencies
@@ -156,8 +164,14 @@ Streaming Response
 - **Anthropic**: Uses `tools` array with `input_schema`, returns `tool_use` content blocks
 
 ### Images
-- **OpenAI**: `{"type": "image_url", "image_url": {"url": "..."}}`
-- **Anthropic**: `{"type": "image", "source": {"type": "url", "url": "..."}}`
+- **OpenAI**:
+  - URL: `{"type": "image_url", "image_url": {"url": "https://..."}}`
+  - Base64: `{"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}`
+- **Anthropic**:
+  - URL: `{"type": "image", "source": {"type": "url", "url": "https://..."}}`
+  - Base64: `{"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "..."}}`
+
+**Note**: This script uses base64-encoded images from local files (`tires.jpeg` and `plot.png`) to demonstrate image handling.
 
 ## Use Cases
 
