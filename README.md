@@ -1,0 +1,181 @@
+# LLM Request Demo
+
+A demonstration script for exploring OpenAI and Anthropic API message formats. This tool helps you understand the structure of requests and streaming responses from both providers, which is useful for building LLM proxies and integrations.
+
+## What It Does
+
+This script sends requests to OpenAI or Anthropic APIs and displays:
+1. **Request Payload** - The exact JSON being sent to the API
+2. **Streaming Response** - Each streaming event as complete JSON objects
+
+It demonstrates various message types including:
+- Simple text conversations
+- Image inputs
+- Tool/function calling
+- Tool responses
+- Images in tool results
+
+## Setup
+
+### 1. Install Dependencies
+
+```bash
+uv pip install -r requirements.txt
+```
+
+Or using pip:
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure API Keys
+
+Create a `.env` file in the project root:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` and add your API keys:
+
+```
+OPENAI_API_KEY=sk-your-openai-api-key-here
+ANTHROPIC_API_KEY=sk-ant-your-anthropic-api-key-here
+```
+
+Alternatively, you can set environment variables directly:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+## Usage
+
+```bash
+./llm_demo.py --provider <openai|anthropic> --scenario <scenario_name>
+```
+
+### Available Scenarios
+
+#### 1. `simple_chat`
+Basic text conversation with system prompt and user message.
+
+```bash
+./llm_demo.py --provider openai --scenario simple_chat
+./llm_demo.py --provider anthropic --scenario simple_chat
+```
+
+#### 2. `image_input`
+Send an image URL as part of the user message.
+
+```bash
+./llm_demo.py --provider openai --scenario image_input
+./llm_demo.py --provider anthropic --scenario image_input
+```
+
+#### 3. `tool_call`
+Trigger a tool/function call (weather API example).
+
+```bash
+./llm_demo.py --provider openai --scenario tool_call
+./llm_demo.py --provider anthropic --scenario tool_call
+```
+
+#### 4. `tool_response`
+Multi-turn conversation including a tool call and its result.
+
+```bash
+./llm_demo.py --provider openai --scenario tool_response
+./llm_demo.py --provider anthropic --scenario tool_response
+```
+
+#### 5. `image_in_tool`
+Tool result that contains an image.
+
+```bash
+./llm_demo.py --provider openai --scenario image_in_tool
+./llm_demo.py --provider anthropic --scenario image_in_tool
+```
+
+## Example Output
+
+```
+============================================================
+OpenAI Request Payload
+============================================================
+{
+  "model": "gpt-5",
+  "messages": [
+    {
+      "role": "developer",
+      "content": "You are a helpful assistant that provides concise answers."
+    },
+    {
+      "role": "user",
+      "content": "Tell me a haiku."
+    }
+  ],
+  "stream": true
+}
+
+============================================================
+Streaming Response
+============================================================
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion.chunk",
+  "created": 1234567890,
+  "model": "gpt-5",
+  "choices": [
+    {
+      "index": 0,
+      "delta": {
+        "role": "assistant",
+        "content": "Silent"
+      },
+      "finish_reason": null
+    }
+  ]
+}
+...
+```
+
+## Key Differences Between Providers
+
+### Message Roles
+- **OpenAI**: `developer`, `user`, `assistant`, `tool`
+- **Anthropic**: `user`, `assistant` (system is a separate parameter)
+
+### Content Structure
+- **OpenAI**: Content can be string or array of `{type: "text"}` or `{type: "image_url"}` objects
+- **Anthropic**: Content is array of blocks: `{type: "text"}`, `{type: "image"}`, `{type: "tool_use"}`, `{type: "tool_result"}`
+
+### Tool Calling
+- **OpenAI**: Uses `tools` array with `function` objects, returns `tool_calls` array
+- **Anthropic**: Uses `tools` array with `input_schema`, returns `tool_use` content blocks
+
+### Images
+- **OpenAI**: `{"type": "image_url", "image_url": {"url": "..."}}`
+- **Anthropic**: `{"type": "image", "source": {"type": "url", "url": "..."}}`
+
+## Use Cases
+
+This tool is helpful for:
+- **Building LLM Proxies** - Understanding the exact format for routing between providers
+- **Learning API Structures** - Seeing real request/response formats side-by-side
+- **Debugging Integrations** - Comparing expected vs actual message structures
+- **Protocol Translation** - Understanding how to convert between provider formats
+
+## Configuration
+
+Model names are configurable at the top of `llm_demo.py`:
+
+```python
+OPENAI_MODEL = "gpt-5"
+ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929"
+```
+
+## License
+
+MIT
