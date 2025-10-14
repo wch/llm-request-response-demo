@@ -109,6 +109,15 @@ def truncate_base64(obj, max_length=100):
         ):
             # Looks like raw base64
             return f"{obj[:max_length]}... [truncated {len(obj)} chars]"
+        else:
+            # Check if this is a JSON string containing base64 data
+            try:
+                parsed = json.loads(obj)
+                if isinstance(parsed, dict):
+                    truncated = truncate_base64(parsed, max_length)
+                    return json.dumps(truncated)
+            except (json.JSONDecodeError, TypeError):
+                pass
         return obj
     else:
         return obj
