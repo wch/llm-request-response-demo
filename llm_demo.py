@@ -55,7 +55,7 @@ def load_api_keys():
 def check_api_key(provider: str, api_key: str):
     """Check if API key is present and provide helpful error message if not."""
     if not api_key:
-        key_name = "OPENAI_API_KEY" if provider == "openai" else "ANTHROPIC_API_KEY"
+        key_name = "OPENAI_API_KEY" if provider == "openai-api" else "ANTHROPIC_API_KEY"
         print(f"{Colors.RED}Error: Missing {key_name}!{Colors.ENDC}\n")
         print("You can provide it by either:")
         print(
@@ -226,6 +226,20 @@ def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
         return None
 
     send_streaming_request(url, headers, payload, extract_text, "OpenAI", pretty)
+
+
+def send_to_openai_responses(payload: Dict[str, Any], api_key: str, pretty: bool = False):
+    """Send request to OpenAI Responses API and stream the response."""
+    url = "https://api.openai.com/v1/responses"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    def extract_text(data):
+        # OpenAI Responses API uses output.content[].text
+        if data.get("type", "") == "response.output_text.delta":
+            return data["delta"]
+        return None
+
+    send_streaming_request(url, headers, payload, extract_text, "OpenAI Responses API", pretty)
 
 
 def send_to_anthropic(payload: Dict[str, Any], api_key: str, pretty: bool = False):
@@ -455,6 +469,13 @@ def get_scenarios_anthropic() -> Dict[str, Dict[str, Any]]:
             "messages": [{"role": "user", "content": "Tell me a haiku."}],
             "stream": True,
         },
+        "simple_chat": {
+            "model": ANTHROPIC_MODEL,
+            "max_tokens": 1024,
+            "system": "You are a helpful assistant that provides answers.",
+            "messages": [{"role": "user", "content": "Tell me a haiku."}],
+            "stream": True,
+        },
         "image_input": {
             "model": "claude-3-5-sonnet-20241022",
             "max_tokens": 1024,
@@ -622,13 +643,173 @@ def get_scenarios_anthropic() -> Dict[str, Dict[str, Any]]:
     }
 
 
+def get_scenarios_openai_responses() -> Dict[str, Dict[str, Any]]:
+    """Get OpenAI Responses API scenarios."""
+    # Load images
+    tires_b64, tires_media = load_image_base64("tires.jpeg")
+    plot_b64, plot_media = load_image_base64("plot.png")
+    
+    return {
+        "simple_chat": {
+            "model": "gpt-4.1",
+            "instructions": "You are a helpful assistant that provides concise answers.",
+            "input": "Tell me a haiku.",
+            "stream": True,
+            "store": False,
+        },
+        "image_input": {
+            "model": "gpt-4.1",
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "What do you see in this image?"},
+                        {
+                            "type": "input_image",
+                            "image_url": f"data:{tires_media};base64,{tires_b64}"
+                        }
+                    ]
+                }
+            ],
+            "stream": True,
+            "store": False,
+        },
+        "tool_call": {
+            "model": "gpt-4.1",
+            "input": "What is the weather like in Boston today?",
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "get_current_weather",
+                    "description": "Get the current weather in a given location",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA"
+                            },
+                            "unit": {
+                                "type": "string",
+                                "enum": ["celsius", "fahrenheit"]
+                            }
+                        },
+                        "required": ["location", "unit"]
+                    }
+                }
+            ],
+            "tool_choice": "auto",
+            "stream": True,
+            "store": False,
+        },
+        "tool_response": {
+            "model": "gpt-4.1",
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "What is the weather like in Boston today?"}
+                    ]
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_abc123",
+                    "name": "get_current_weather",
+                    "arguments": json.dumps({
+                        "location": "Boston, MA",
+                        "unit": "fahrenheit"
+                    })
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_abc123",
+                    "output": json.dumps({
+                        "temperature": 72,
+                        "condition": "sunny",
+                        "humidity": 65
+                    })
+                }
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "get_current_weather",
+                    "description": "Get the current weather in a given location",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA"
+                            },
+                            "unit": {
+                                "type": "string",
+                                "enum": ["celsius", "fahrenheit"]
+                            }
+                        },
+                        "required": ["location", "unit"]
+                    }
+                }
+            ],
+            "stream": True,
+            "store": False,
+        },
+        "image_in_tool": {
+            "model": "gpt-4.1",
+            "input": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "input_text", "text": "Create a bar chart showing sales data and describe it to me. Don't send the image back to me."}
+                    ]
+                },
+                {
+                    "type": "function_call",
+                    "call_id": "call_chart123",
+                    "name": "generate_chart",
+                    "arguments": json.dumps({
+                        "chart_type": "bar",
+                        "data": [10, 20, 30, 40]
+                    })
+                },
+                {
+                    "type": "function_call_output",
+                    "call_id": "call_chart123",
+                    "output": [
+                        {
+                            "type": "input_image",
+                            "image_url": f"data:{plot_media};base64,{plot_b64}"
+                        }
+                    ]
+                }
+            ],
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "generate_chart",
+                    "description": "Generate a chart and return the image",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "chart_type": {"type": "string"},
+                            "data": {"type": "array", "items": {"type": "number"}}
+                        },
+                        "required": ["chart_type", "data"]
+                    }
+                }
+            ],
+            "stream": True,
+            "store": False,
+        },
+    }
+
 def main():
     parser = argparse.ArgumentParser(
         description="LLM Message Format Demo - Send requests to OpenAI or Anthropic"
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "anthropic"],
+        choices=["openai-api", "openai-responses", "anthropic"],
         required=True,
         help="LLM provider to use",
     )
@@ -657,11 +838,16 @@ def main():
     openai_key, anthropic_key = load_api_keys()
 
     # Select provider and check API key
-    if args.provider == "openai":
-        check_api_key("openai", openai_key)
+    if args.provider == "openai-api":
+        check_api_key("openai-api", openai_key)
         scenarios = get_scenarios_openai()
         payload = scenarios[args.scenario]
         send_to_openai(payload, openai_key, args.pretty)
+    elif args.provider == "openai-responses":
+        check_api_key("openai-api", openai_key)
+        scenarios = get_scenarios_openai_responses()
+        payload = scenarios[args.scenario]
+        send_to_openai_responses(payload, openai_key, args.pretty)
     else:  # anthropic
         check_api_key("anthropic", anthropic_key)
         scenarios = get_scenarios_anthropic()
