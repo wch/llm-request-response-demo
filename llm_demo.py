@@ -134,22 +134,30 @@ def print_payload(payload: Dict[str, Any], title: str = "Request Payload"):
     print()
 
 
-def print_stream_start():
-    """Print streaming response header."""
+def send_streaming_request(
+    url: str,
+    headers: Dict[str, str],
+    payload: Dict[str, Any],
+    extract_text_fn,
+    provider_name: str,
+    pretty: bool = False,
+):
+    """
+    Send a streaming request to an LLM provider and display the response.
+    
+    Args:
+        url: API endpoint URL
+        headers: Request headers
+        payload: Request payload
+        extract_text_fn: Function that takes parsed JSON data and returns text content or None
+        provider_name: Name of the provider for display purposes
+        pretty: Whether to pretty-print JSON data
+    """
+    print_payload(payload, f"{provider_name} Request Payload")
+    
     print(f"{Colors.BOLD}{Colors.GREEN}{'=' * 60}{Colors.ENDC}")
     print(f"{Colors.BOLD}{Colors.GREEN}Streaming Response{Colors.ENDC}")
     print(f"{Colors.BOLD}{Colors.GREEN}{'=' * 60}{Colors.ENDC}")
-
-
-def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
-    """Send request to OpenAI and stream the response."""
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-
-    print_payload(payload, "OpenAI Request Payload")
-    print_stream_start()
-
-    accumulated_text = []
 
     try:
         response = requests.post(url, headers=headers, json=payload, stream=True)
@@ -161,6 +169,8 @@ def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
             )
             sys.exit(1)
 
+        accumulated_text = []
+        
         # Parse SSE stream
         for line in response.iter_lines():
             line = line.decode("utf-8")
@@ -179,19 +189,17 @@ def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
                     else:
                         print(f"{Colors.CYAN}{line}{Colors.ENDC}")
 
-
-                    # Accumulate text content
-                    if "choices" in data and len(data["choices"]) > 0:
-                        delta = data["choices"][0].get("delta", {})
-                        if "content" in delta and delta["content"]:
-                            accumulated_text.append(delta["content"])
+                    # Accumulate text content using provider-specific extraction
+                    text = extract_text_fn(data)
+                    if text:
+                        accumulated_text.append(text)
                 except json.JSONDecodeError:
                     print(f"{Colors.CYAN}{line}{Colors.ENDC}")
                     pass
 
         print()  # Final newline
         print(f"{Colors.GREEN}Stream complete.{Colors.ENDC}\n")
-
+        
         # Print accumulated text
         if accumulated_text:
             print(f"{Colors.BOLD}{Colors.YELLOW}{'=' * 60}{Colors.ENDC}")
@@ -203,6 +211,21 @@ def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
     except requests.exceptions.RequestException as e:
         print(f"{Colors.RED}Error: {e}{Colors.ENDC}")
         sys.exit(1)
+
+
+def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
+    """Send request to OpenAI and stream the response."""
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    def extract_text(data):
+        if "choices" in data and len(data["choices"]) > 0:
+            delta = data["choices"][0].get("delta", {})
+            if "content" in delta and delta["content"]:
+                return delta["content"]
+        return None
+
+    send_streaming_request(url, headers, payload, extract_text, "OpenAI", pretty)
 
 
 def send_to_anthropic(payload: Dict[str, Any], api_key: str, pretty: bool = False):
@@ -214,64 +237,14 @@ def send_to_anthropic(payload: Dict[str, Any], api_key: str, pretty: bool = Fals
         "content-type": "application/json",
     }
 
-    print_payload(payload, "Anthropic Request Payload")
-    print_stream_start()
+    def extract_text(data):
+        if data.get("type") == "content_block_delta":
+            delta = data.get("delta", {})
+            if delta.get("type") == "text_delta":
+                return delta.get("text", "")
+        return None
 
-    accumulated_text = []
-
-    try:
-        response = requests.post(url, headers=headers, json=payload, stream=True)
-
-        if not response.ok:
-            error_body = response.text
-            print(
-                f"{Colors.RED}Error {response.status_code}: {error_body}{Colors.ENDC}"
-            )
-            sys.exit(1)
-
-        # Parse SSE stream
-        for line in response.iter_lines():
-            line = line.decode("utf-8")
-            if not line.startswith("data: "):
-                print(f"{Colors.CYAN}{line}{Colors.ENDC}")
-            else:
-                data_str = line[6:]  # Remove 'data: ' prefix
-                try:
-                    data = json.loads(data_str)
-                    
-                    # Print either pretty or raw
-                    if pretty:
-                        print(
-                            f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
-                        )
-                    else:
-                        print(f"{Colors.CYAN}{line}{Colors.ENDC}")
-
-                    # Accumulate text content
-                    if data.get("type") == "content_block_delta":
-                        delta = data.get("delta", {})
-                        if delta.get("type") == "text_delta":
-                            text = delta.get("text", "")
-                            if text:
-                                accumulated_text.append(text)
-                except json.JSONDecodeError:
-                    print(f"{Colors.CYAN}{line}{Colors.ENDC}")
-                    pass
-
-        print()  # Final newline
-        print(f"{Colors.GREEN}Stream complete.{Colors.ENDC}\n")
-
-        # Print accumulated text
-        if accumulated_text:
-            print(f"{Colors.BOLD}{Colors.YELLOW}{'=' * 60}{Colors.ENDC}")
-            print(f"{Colors.BOLD}{Colors.YELLOW}Accumulated Text Response{Colors.ENDC}")
-            print(f"{Colors.BOLD}{Colors.YELLOW}{'=' * 60}{Colors.ENDC}")
-            print("".join(accumulated_text))
-            print(f"\n{Colors.YELLOW}{'=' * 60}{Colors.ENDC}\n")
-
-    except requests.exceptions.RequestException as e:
-        print(f"{Colors.RED}Error: {e}{Colors.ENDC}")
-        sys.exit(1)
+    send_streaming_request(url, headers, payload, extract_text, "Anthropic", pretty)
 
 
 # ============================================================================
