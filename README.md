@@ -5,8 +5,9 @@ A demonstration script for exploring OpenAI and Anthropic API message formats. T
 ## What It Does
 
 This script sends requests to OpenAI or Anthropic APIs and displays:
-1. **Request Payload** - The exact JSON being sent to the API
-2. **Streaming Response** - Each streaming event as complete JSON objects
+1. **Request Payload** - The exact JSON being sent to the API (always pretty-printed)
+2. **Streaming Response** - Each streaming event (raw format by default, or pretty-printed with `--pretty`)
+3. **Accumulated Text** - The complete text response extracted from the stream
 
 It demonstrates various message types including:
 - Simple text conversations
@@ -61,7 +62,21 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Usage
 
 ```bash
-./llm_demo.py --provider <openai|anthropic> --scenario <scenario_name>
+./llm_demo.py --provider <openai|anthropic> --scenario <scenario_name> [--pretty]
+```
+
+### Output Formats
+
+**Default (raw)**: Streaming responses are shown exactly as received from the API, preserving the original format. This is useful for debugging and seeing the exact wire format.
+
+**With `--pretty`**: Streaming responses are parsed and re-formatted with indentation for easier reading.
+
+```bash
+# Raw format (default) - compact, exact API format
+./llm_demo.py --provider openai --scenario simple_chat
+
+# Pretty format - indented JSON for readability
+./llm_demo.py --provider openai --scenario simple_chat --pretty
 ```
 
 ### Available Scenarios
@@ -108,6 +123,8 @@ Tool result that contains an image.
 
 ## Example Output
 
+When run without `--pretty`, the streaming response shows the raw API format:
+
 ```
 ============================================================
 OpenAI Request Payload
@@ -124,30 +141,29 @@ OpenAI Request Payload
       "content": "Tell me a haiku."
     }
   ],
-  "stream": true
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  }
 }
 
 ============================================================
 Streaming Response
 ============================================================
-{
-  "id": "chatcmpl-...",
-  "object": "chat.completion.chunk",
-  "created": 1234567890,
-  "model": "gpt-5",
-  "choices": [
-    {
-      "index": 0,
-      "delta": {
-        "role": "assistant",
-        "content": "Silent"
-      },
-      "finish_reason": null
-    }
-  ]
-}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1234567890,"model":"gpt-5","choices":[{"index":0,"delta":{"role":"assistant","content":"Silent"},"finish_reason":null}]}
+data: {"id":"chatcmpl-...","object":"chat.completion.chunk","created":1234567890,"model":"gpt-5","choices":[{"index":0,"delta":{"content":" moonlight"},"finish_reason":null}]}
 ...
+
+============================================================
+Accumulated Text Response
+============================================================
+Silent moonlight falls
+On the quiet garden pond
+Ripples fade to peace
+============================================================
 ```
+
+With `--pretty`, streaming chunks are formatted with indentation for easier inspection.
 
 ## Key Differences Between Providers
 
