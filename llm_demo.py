@@ -163,25 +163,26 @@ def send_to_openai(payload: Dict[str, Any], api_key: str):
 
         # Parse SSE stream
         for line in response.iter_lines():
-            if line:
-                line = line.decode("utf-8")
-                if line.startswith("data: "):
-                    data_str = line[6:]  # Remove 'data: ' prefix
-                    if data_str == "[DONE]":
-                        print(f"{Colors.CYAN}data: [DONE]{Colors.ENDC}")
-                        break
-                    try:
-                        data = json.loads(data_str)
-                        # Print the entire JSON payload
-                        print(f"{Colors.CYAN}{json.dumps(data, indent=2)}{Colors.ENDC}")
+            line = line.decode("utf-8")
+            if not line.startswith("data: "):
+                print(f"{Colors.CYAN}{line}{Colors.ENDC}")
+            else:
+                data_str = line[6:]  # Remove 'data: ' prefix
+                try:
+                    data = json.loads(data_str)
+                    # Print the entire JSON payload
+                    print(
+                        f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
+                    )
 
-                        # Accumulate text content
-                        if "choices" in data and len(data["choices"]) > 0:
-                            delta = data["choices"][0].get("delta", {})
-                            if "content" in delta and delta["content"]:
-                                accumulated_text.append(delta["content"])
-                    except json.JSONDecodeError:
-                        pass
+                    # Accumulate text content
+                    if "choices" in data and len(data["choices"]) > 0:
+                        delta = data["choices"][0].get("delta", {})
+                        if "content" in delta and delta["content"]:
+                            accumulated_text.append(delta["content"])
+                except json.JSONDecodeError:
+                    print(f"{Colors.CYAN}{line}{Colors.ENDC}")
+                    pass
 
         print()  # Final newline
         print(f"{Colors.GREEN}Stream complete.{Colors.ENDC}\n")
@@ -225,24 +226,28 @@ def send_to_anthropic(payload: Dict[str, Any], api_key: str):
 
         # Parse SSE stream
         for line in response.iter_lines():
-            if line:
-                line = line.decode("utf-8")
-                if line.startswith("data: "):
-                    data_str = line[6:]  # Remove 'data: ' prefix
-                    try:
-                        data = json.loads(data_str)
-                        # Print the entire JSON payload
-                        print(f"{Colors.CYAN}{json.dumps(data, indent=2)}{Colors.ENDC}")
+            line = line.decode("utf-8")
+            if not line.startswith("data: "):
+                print(f"{Colors.CYAN}{line}{Colors.ENDC}")
+            else:
+                data_str = line[6:]  # Remove 'data: ' prefix
+                try:
+                    data = json.loads(data_str)
+                    # Print the entire JSON payload
+                    print(
+                        f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
+                    )
 
-                        # Accumulate text content
-                        if data.get("type") == "content_block_delta":
-                            delta = data.get("delta", {})
-                            if delta.get("type") == "text_delta":
-                                text = delta.get("text", "")
-                                if text:
-                                    accumulated_text.append(text)
-                    except json.JSONDecodeError:
-                        pass
+                    # Accumulate text content
+                    if data.get("type") == "content_block_delta":
+                        delta = data.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            text = delta.get("text", "")
+                            if text:
+                                accumulated_text.append(text)
+                except json.JSONDecodeError:
+                    print(f"{Colors.CYAN}{line}{Colors.ENDC}")
+                    pass
 
         print()  # Final newline
         print(f"{Colors.GREEN}Stream complete.{Colors.ENDC}\n")
