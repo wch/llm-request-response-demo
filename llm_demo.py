@@ -141,7 +141,7 @@ def print_stream_start():
     print(f"{Colors.BOLD}{Colors.GREEN}{'=' * 60}{Colors.ENDC}")
 
 
-def send_to_openai(payload: Dict[str, Any], api_key: str):
+def send_to_openai(payload: Dict[str, Any], api_key: str, pretty: bool = False):
     """Send request to OpenAI and stream the response."""
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
@@ -170,10 +170,15 @@ def send_to_openai(payload: Dict[str, Any], api_key: str):
                 data_str = line[6:]  # Remove 'data: ' prefix
                 try:
                     data = json.loads(data_str)
-                    # Print the entire JSON payload
-                    print(
-                        f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
-                    )
+                    
+                    # Print either pretty or raw
+                    if pretty:
+                        print(
+                            f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
+                        )
+                    else:
+                        print(f"{Colors.CYAN}{line}{Colors.ENDC}")
+
 
                     # Accumulate text content
                     if "choices" in data and len(data["choices"]) > 0:
@@ -200,7 +205,7 @@ def send_to_openai(payload: Dict[str, Any], api_key: str):
         sys.exit(1)
 
 
-def send_to_anthropic(payload: Dict[str, Any], api_key: str):
+def send_to_anthropic(payload: Dict[str, Any], api_key: str, pretty: bool = False):
     """Send request to Anthropic and stream the response."""
     url = "https://api.anthropic.com/v1/messages"
     headers = {
@@ -233,10 +238,14 @@ def send_to_anthropic(payload: Dict[str, Any], api_key: str):
                 data_str = line[6:]  # Remove 'data: ' prefix
                 try:
                     data = json.loads(data_str)
-                    # Print the entire JSON payload
-                    print(
-                        f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
-                    )
+                    
+                    # Print either pretty or raw
+                    if pretty:
+                        print(
+                            f"{Colors.CYAN}data: {json.dumps(data, indent=2)}{Colors.ENDC}"
+                        )
+                    else:
+                        print(f"{Colors.CYAN}{line}{Colors.ENDC}")
 
                     # Accumulate text content
                     if data.get("type") == "content_block_delta":
@@ -662,6 +671,12 @@ def main():
         required=True,
         help="Scenario to demonstrate",
     )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Pretty print the streaming JSON responses",
+    )
+
 
     args = parser.parse_args()
 
@@ -673,12 +688,12 @@ def main():
         check_api_key("openai", openai_key)
         scenarios = get_scenarios_openai()
         payload = scenarios[args.scenario]
-        send_to_openai(payload, openai_key)
+        send_to_openai(payload, openai_key, args.pretty)
     else:  # anthropic
         check_api_key("anthropic", anthropic_key)
         scenarios = get_scenarios_anthropic()
         payload = scenarios[args.scenario]
-        send_to_anthropic(payload, anthropic_key)
+        send_to_anthropic(payload, anthropic_key, args.pretty)
 
 
 if __name__ == "__main__":
