@@ -282,6 +282,7 @@ def get_scenarios_openai() -> Dict[str, Dict[str, Any]]:
                 {"role": "user", "content": "Tell me a haiku."},
             ],
             "stream": True,
+            "stream_options": {"include_usage": True},
         },
         "image_input": {
             "model": OPENAI_MODEL,
@@ -301,6 +302,7 @@ def get_scenarios_openai() -> Dict[str, Dict[str, Any]]:
             ],
             "max_tokens": 300,
             "stream": True,
+            "stream_options": {"include_usage": True},
         },
         "tool_call": {
             "model": OPENAI_MODEL,
@@ -340,6 +342,7 @@ def get_scenarios_openai() -> Dict[str, Dict[str, Any]]:
             ],
             "tool_choice": "auto",
             "stream": True,
+            "stream_options": {"include_usage": True},
         },
         "tool_response": {
             "model": OPENAI_MODEL,
@@ -393,6 +396,7 @@ def get_scenarios_openai() -> Dict[str, Dict[str, Any]]:
                 }
             ],
             "stream": True,
+            "stream_options": {"include_usage": True},
         },
         "image_in_tool": {
             "model": OPENAI_MODEL,
@@ -445,6 +449,7 @@ def get_scenarios_openai() -> Dict[str, Dict[str, Any]]:
                 }
             ],
             "stream": True,
+            "stream_options": {"include_usage": True},
         },
     }
 
